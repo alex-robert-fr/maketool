@@ -25,7 +25,7 @@ fn main() {
     make_file.write(format!("OBJ = $(SRC:.c=.o)\n").as_bytes());
     make_file.write(format!("\n$(NAME):\n").as_bytes());
     make_file.write(format!("\t$(CC) -c $(SRC) $(CFLAGS)\n").as_bytes());
-    make_file.write(format!("clear:\n").as_bytes());
+    make_file.write(format!("clean:\n").as_bytes());
     make_file.write(format!("\t@rm -f $(OBJ)\n").as_bytes());
     make_file.write(format!("fclean: clean\n").as_bytes());
     make_file.write(format!("\t@rm -f $(NAME)\n").as_bytes());
