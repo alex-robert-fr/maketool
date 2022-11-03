@@ -1,54 +1,205 @@
-use std::{io::{stdin, Write}, fs::{File, read_dir}, path::Path, ffi::OsStr};
+use std::{
+    fs::{read_dir, File},
+    io::{stdin, Write},
+    path::Path,
+};
+
+struct Makefile {
+    name: String,
+    // files: Vec<String>,
+    compiler: String,
+    is_libs: bool,
+    cmd_run: bool,
+    // cmd_libs: bool,
+    // libs: String,
+}
+
+impl Makefile {
+    fn new(name: String) -> Self {
+        Makefile {
+            name,
+            // files: Vec::new(),
+            compiler: String::new(),
+            is_libs: false,
+            cmd_run: false,
+            // cmd_libs: false,
+            // libs: String::new(),
+        }
+    }
+}
 
 fn main() {
-    let mut p_name = String::new();
-    let mut cmd_run = String::new();
+    /* -------------------------------------------------------------------------- */
+    /*                                  Bienvenu                                  */
+    /* -------------------------------------------------------------------------- */
+
+    let mut name = String::new();
     println!("Bienvenue sur Maketool !");
     println!("Quel est le nom de votre programme ? ");
     stdin()
-    .read_line(&mut p_name)
-    .expect("Une erreur est survenue !");
-    println!("Souhaitez-vous ajouer une commande 'run'[y/n]");
-    stdin()
-        .read_line(&mut cmd_run)
-        .expect("Une erreur est survenue !");
-    println!("Generation...");
-    let mut make_file = File::create("Makefile").unwrap();
-    make_file.write_all(format!("NAME={p_name}").as_bytes());
-    make_file.write(format!("CC=gcc\n").as_bytes());
-    make_file.write(format!("SRC=").as_bytes());
+        .read_line(&mut name)
+        .expect("La recuperation de l'entre utilisateur a echoue.");
+    let mut makefile = Makefile::new(name);
 
-    for file in read_dir(".").unwrap() {
-        let f = file.unwrap();
-        if let Some(ex) = Path::new(f.path().as_os_str()).extension() {
-            if ex == "c" {
-                make_file.write(format!("{} \\\n", f.file_name().as_os_str().to_str().unwrap()).as_bytes());
+    /* -------------------------------------------------------------------------- */
+    /*                           Parametrage Du Makefile                          */
+    /* -------------------------------------------------------------------------- */
+
+    loop {
+        println!("Quel type de Makefile souhaitez-vous generer ?");
+        println!("1) Un programme avec un main");
+        println!("2) Une bibliotheque");
+        let mut cmd = String::new();
+        stdin()
+            .read_line(&mut cmd)
+            .expect("La recuperation de l'entre utilisateur a echoue.");
+        match cmd.as_str() {
+            "1\n" => break,
+            "2\n" => {
+                makefile.is_libs = true;
+                break;
+            }
+            _ => (),
+        }
+    }
+
+    /* -------------------------------- Compiler -------------------------------- */
+    println!("Quel compilateur souhaitez-vous uiliser :");
+    stdin()
+        .read_line(&mut makefile.compiler)
+        .expect("La recuperation de l'entre utilisateur a echoue.");
+
+    /* ----------------------------------- Run ---------------------------------- */
+    loop {
+        println!("Souhaitez-vous ajouer une commande 'run'[y/n]");
+        let mut cmd = String::new();
+        stdin()
+            .read_line(&mut cmd)
+            .expect("La recuperation de l'entre utilisateur a echoue.");
+        match cmd.as_str() {
+            "y\n" => {
+                makefile.cmd_run = true;
+                break;
+            }
+            "n\n" => break,
+            _ => (),
+        }
+    }
+
+    // /* ---------------------------------- Libs ---------------------------------- */
+    // loop {
+    //     println!("Souhaitez-vous inclure une bibliotheque a votre Makefile [y/n]");
+    //     let mut cmd = String::new();
+    //     stdin()
+    //         .read_line(&mut cmd)
+    //         .expect("La recuperation de l'entre utilisateur a echoue.");
+    //     match cmd.as_str() {
+    //         "y\n" => {
+    //             makefile.cmd_libs = true;
+    //             println!("Nom de votre bibliotheque: ");
+    //             stdin()
+    //                 .read_line(&mut makefile.libs)
+    //                 .expect("La recuperation de l'entre utilisateur a echoue.");
+    //             break;
+    //         }
+    //         "n\n" => break,
+    //         _ => (),
+    //     }
+    // }
+
+    /* -------------------------------------------------------------------------- */
+    /*                            Creation du Makefile                            */
+    /* -------------------------------------------------------------------------- */
+
+    let mut file = match File::create("Makefile") {
+        Ok(file) => file,
+        Err(_) => panic!("Le Makefile n'a pas pu etre cree"),
+    };
+
+    /* ---------------------------------- NAME ---------------------------------- */
+    file.write_all(format!("NAME={}", makefile.name).as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+
+    /* ----------------------------------- CC ----------------------------------- */
+    file.write(format!("CC={}\n", makefile.compiler).as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+
+    /* ----------------------------------- SRC ---------------------------------- */
+    file.write(format!("SRC=").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+    for c_file in read_dir(".").expect("Le dossier n'existe pas") {
+        let c_file = c_file.unwrap();
+        if let Some(ext) = Path::new(c_file.path().as_os_str()).extension() {
+            if ext == "c" {
+                file.write(
+                    format!("{} \\\n", c_file.file_name().as_os_str().to_str().unwrap()).as_bytes(),
+                )
+                .expect("Le programme n'a pas pu ecrire dans le fichier");
             }
         }
     }
-    make_file.write(format!("\nCFLAGS = -Wall -Wextra -Werror\n").as_bytes());
-    make_file.write(format!("OBJ = $(SRC:.c=.o)\n").as_bytes());
 
-    make_file.write(format!("\n$(NAME):\n").as_bytes());
-    make_file.write(format!("\t$(CC) -c $(SRC) $(CFLAGS)\n").as_bytes());
+    /* --------------------------------- CFLAGS --------------------------------- */
+    file.write(format!("\nCFLAGS = -Wall -Wextra -Werror\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
 
-    if (cmd_run.as_str() == "y\n")
-    {
-            make_file.write(format!("run: $(NAME)\n").as_bytes());
-            make_file.write(format!("\t./a.out\n").as_bytes());
+    /* ----------------------------------- OBJ ---------------------------------- */
+    file.write(format!("OBJ = $(SRC:.c=.o)\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    RULES                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /* --------------------------------- $(NAME) -------------------------------- */
+    file.write(format!("\n$(NAME):\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+    match makefile.is_libs {
+        true => {
+            file.write(format!("\t$(CC) -c $(SRC) $(CFLAGS)\n").as_bytes())
+                .expect("Le programme n'a pas pu ecrire dans le fichier");
+            file.write(format!("\tar rcs $(NAME) $(OBJ)\n").as_bytes())
+                .expect("Le programme n'a pas pu ecrire dans le fichier")
+        }
+        false => file
+            .write(format!("\t$(CC) $(SRC) $(CFLAGS)\n").as_bytes())
+            .expect("Le programme n'a pas pu ecrire dans le fichier"),
+    };
+
+    /* ----------------------------------- RUN ---------------------------------- */
+    if makefile.cmd_run {
+        file.write(format!("run: $(NAME)\n").as_bytes())
+            .expect("Le programme n'a pas pu ecrire dans le fichier");
+        file.write(format!("\t./a.out\n").as_bytes())
+            .expect("Le programme n'a pas pu ecrire dans le fichier");
     }
 
-    make_file.write(format!("clean:\n").as_bytes());
-    make_file.write(format!("\t@rm -f $(OBJ)\n").as_bytes());
+    /* ---------------------------------- CLEAN --------------------------------- */
+    file.write(format!("clean:\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+    file.write(format!("\trm -f $(OBJ)\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
 
-    make_file.write(format!("fclean: clean\n").as_bytes());
-    make_file.write(format!("\t@rm -f $(NAME)\n").as_bytes());
+    /* --------------------------------- FCLEAN --------------------------------- */
+    file.write(format!("fclean: clean\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+    file.write(format!("\trm -f $(NAME)\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
 
-    make_file.write(format!("re: fclean all\n").as_bytes());
+    /* ----------------------------------- RE ----------------------------------- */
+    file.write(format!("re: fclean all\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
 
-    make_file.write(format!("all: $(NAME)\n").as_bytes());
+    /* ----------------------------------- ALL ---------------------------------- */
+    file.write(format!("all: $(NAME)\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
 
-    make_file.write(format!(".PHONY:\n").as_bytes());
-    make_file.write(format!("\tall clear fclean re bonus\n").as_bytes());
+    /* --------------------------------- .PHONY --------------------------------- */
+    file.write(format!(".PHONY:\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+    file.write(format!("\tall clear fclean re bonus\n").as_bytes())
+        .expect("Le programme n'a pas pu ecrire dans le fichier");
+
     println!("Generation du Makefile termine !");
+
 }
