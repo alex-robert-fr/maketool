@@ -129,6 +129,10 @@ fn main() {
         .expect("Le programme n'a pas pu ecrire dans le fichier");
     for c_file in read_dir(".").expect("Le dossier n'existe pas") {
         let c_file = c_file.unwrap();
+        if makefile.is_libs && c_file.file_name().as_os_str().to_str().unwrap() == "main.c"
+        {
+            continue;
+        }
         if let Some(ext) = Path::new(c_file.path().as_os_str()).extension() {
             if ext == "c" {
                 file.write(
@@ -197,7 +201,7 @@ fn main() {
     /* --------------------------------- .PHONY --------------------------------- */
     file.write(format!(".PHONY:\n").as_bytes())
         .expect("Le programme n'a pas pu ecrire dans le fichier");
-    file.write(format!("\tall clear fclean re bonus\n").as_bytes())
+    file.write(format!("\tall clear fclean re\n").as_bytes())
         .expect("Le programme n'a pas pu ecrire dans le fichier");
 
     println!("Generation du Makefile termine !");
